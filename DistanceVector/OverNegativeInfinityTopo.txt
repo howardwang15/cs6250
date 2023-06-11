@@ -1,0 +1,14 @@
+# 
+#  A ---(-10)--> B ---(2)---> D
+#   ^         /
+#    \     (5)
+#   (-10)  /
+#      \  v
+#       C
+# File Format:
+# Node, Neighbor, Weight, Neighbor, Weight  (repeat as needed)
+#
+A,B,-10
+B,C,5,D,2
+C,A,-10
+D

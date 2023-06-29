@@ -26,15 +26,15 @@
 # Example Rules:
 # 1000,Block,-,-,10.0.0.1/32,10.0.1.0/24,6,-,80,Block 10.0.0.1 from accessing a web server on the 10.0.1.0/24 network
 # 20,Allow,-,-,10.0.0.1/32,10.0.1.125/32,6,-,80,Allow 10.0.0.1 to access a web server on 10.0.1.125 overriding previous rule
-1,Block,-,-,-,10.0.0.2,6,-,853,Block all from accessing TCP 853 on HQ2
-2,Block,-,-,-,10.0.0.2,17,-,853,Block all from accessing UDP 853 on HQ2
-3,Allow,-,-,10.0.0.0/23,10.0.0.2,6,-,853,Allow HQ and US network to access HQ2 TCP 853
-4,Allow,-,-,10.0.20.0/24,10.0.0.2,6,-,853,Allow IN network to access HQ2 TCP 853
-5,Allow,-,-,10.0.30.0/24,10.0.0.2,6,-,853,Allow CN network to access HQ2 TCP 853
-6,Allow,-,-,10.0.40.0/24,10.0.0.2,6,-,853,Allow UK network to access HQ2 TCP 853
-3,Allow,-,-,10.0.0.0/23,10.0.0.2,17,-,853,Allow HQ and US network to access HQ2 UDP 853
-4,Allow,-,-,10.0.20.0/24,10.0.0.2,17,-,853,Allow IN network to access HQ2 UDP 853
-5,Allow,-,-,10.0.30.0/24,10.0.0.2,17,-,853,Allow CN network to access HQ2 UDP 853
-6,Allow,-,-,10.0.40.0/24,10.0.0.2,17,-,853,Allow UK network to access HQ2 UDP 853
+1,Block,-,-,-,10.0.0.2/32,6,-,853,Block all from accessing TCP 853 on HQ2
+2,Block,-,-,-,10.0.0.2/32,17,-,853,Block all from accessing UDP 853 on HQ2
+3,Allow,-,-,10.0.0.0/23,10.0.0.2/32,6,-,853,Allow HQ and US network to access HQ2 TCP 853
+4,Allow,-,-,10.0.20.0/24,10.0.0.2/32,6,-,853,Allow IN network to access HQ2 TCP 853
+5,Allow,-,-,10.0.30.0/24,10.0.0.2/32,6,-,853,Allow CN network to access HQ2 TCP 853
+6,Allow,-,-,10.0.40.0/24,10.0.0.2/32,6,-,853,Allow UK network to access HQ2 TCP 853
+3,Allow,-,-,10.0.0.0/23,10.0.0.2/32,17,-,853,Allow HQ and US network to access HQ2 UDP 853
+4,Allow,-,-,10.0.20.0/24,10.0.0.2/32,17,-,853,Allow IN network to access HQ2 UDP 853
+5,Allow,-,-,10.0.30.0/24,10.0.0.2/32,17,-,853,Allow CN network to access HQ2 UDP 853
+6,Allow,-,-,10.0.40.0/24,10.0.0.2/32,17,-,853,Allow UK network to access HQ2 UDP 853
 
 

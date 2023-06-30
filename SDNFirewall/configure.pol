@@ -26,15 +26,35 @@
 # Example Rules:
 # 1000,Block,-,-,10.0.0.1/32,10.0.1.0/24,6,-,80,Block 10.0.0.1 from accessing a web server on the 10.0.1.0/24 network
 # 20,Allow,-,-,10.0.0.1/32,10.0.1.125/32,6,-,80,Allow 10.0.0.1 to access a web server on 10.0.1.125 overriding previous rule
+# task 1
 1,Block,-,-,-,10.0.0.2/32,6,-,853,Block all from accessing TCP 853 on HQ2
 2,Block,-,-,-,10.0.0.2/32,17,-,853,Block all from accessing UDP 853 on HQ2
 3,Allow,-,-,10.0.0.0/23,10.0.0.2/32,6,-,853,Allow HQ and US network to access HQ2 TCP 853
 4,Allow,-,-,10.0.20.0/24,10.0.0.2/32,6,-,853,Allow IN network to access HQ2 TCP 853
 5,Allow,-,-,10.0.30.0/24,10.0.0.2/32,6,-,853,Allow CN network to access HQ2 TCP 853
 6,Allow,-,-,10.0.40.0/24,10.0.0.2/32,6,-,853,Allow UK network to access HQ2 TCP 853
-3,Allow,-,-,10.0.0.0/23,10.0.0.2/32,17,-,853,Allow HQ and US network to access HQ2 UDP 853
-4,Allow,-,-,10.0.20.0/24,10.0.0.2/32,17,-,853,Allow IN network to access HQ2 UDP 853
-5,Allow,-,-,10.0.30.0/24,10.0.0.2/32,17,-,853,Allow CN network to access HQ2 UDP 853
-6,Allow,-,-,10.0.40.0/24,10.0.0.2/32,17,-,853,Allow UK network to access HQ2 UDP 853
-
-
+7,Allow,-,-,10.0.0.0/23,10.0.0.2/32,17,-,853,Allow HQ and US network to access HQ2 UDP 853
+8,Allow,-,-,10.0.20.0/24,10.0.0.2/32,17,-,853,Allow IN network to access HQ2 UDP 853
+9,Allow,-,-,10.0.30.0/24,10.0.0.2/32,17,-,853,Allow CN network to access HQ2 UDP 853
+10,Allow,-,-,10.0.40.0/24,10.0.0.2/32,17,-,853,Allow UK network to access HQ2 UDP 853
+# task 2
+11,Block,-,-,-,10.0.0.60/32,6,-,1194,Block all from accessing TCP 1194 on HQ3
+12,Block,-,-,-,10.0.0.60/32,17,-,1194,Block all from accessing UDP 1194 on HQ3
+13,Allow,-,-,10.0.1.33/32,10.0.0.60/32,6,-,1194,Allow US3 to access TCP 1194 on HQ3
+14,Allow,-,-,10.0.40.129/32,10.0.0.60/32,6,-,1194,Allow UK3 to access TCP 1194 on HQ3
+15,Allow,-,-,10.0.20.3/32,10.0.0.60/32,6,-,1194,Allow IN3 to access TCP 1194 on HQ3
+16,Allow,-,-,10.0.30.3/32,10.0.0.60/32,6,-,1194,Allow CN3 to access TCP 1194 on HQ3
+17,Allow,-,-,10.0.1.33/32,10.0.0.60/32,17,-,1194,Allow US3 to access UDP 1194 on HQ3
+18,Allow,-,-,10.0.40.129/32,10.0.0.60/32,17,-,1194,Allow UK3 to access UDP 1194 on HQ3
+19,Allow,-,-,10.0.20.3/32,10.0.0.60/32,17,-,1194,Allow IN3 to access UDP 1194 on HQ3
+20,Allow,-,-,10.0.30.3/32,10.0.0.60/32,17,-,1194,Allow CN3 to access UDP 1194 on HQ3
+# task 3
+21,Block,-,-,-,10.0.1.0/24,1,-,-,Block all ICMP traffic to the US subnet
+22,Block,-,-,-,10.0.20.0/24,1,-,-,Block all ICMP traffic to the IN subnet
+23,Block,-,-,-,10.0.30.0/24,1,-,-,Block all ICMP traffic to the CN subnet
+24,Block,-,-,-,10.0.40.0/24,1,-,-,Block all ICMP traffic to the UK subnet
+25,Allow,-,-,10.0.0.0/24,10.0.1.0/24,1,-,-,Allow ICMP traffic to the US subnet from the HQ subnet
+26,Allow,-,-,10.0.0.0/24,10.0.20.0/24,1,-,-,Allow ICMP traffic to the IN subnet from the HQ subnet
+27,Allow,-,-,10.0.0.0/24,10.0.30.0/24,1,-,-,Allow ICMP traffic to the CN subnet from the HQ subnet
+28,Allow,-,-,10.0.0.0/24,10.0.40.0/24,1,-,-,Allow ICMP traffic to the UK subnet from the HQ subnet
+# task 4

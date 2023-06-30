@@ -44,10 +44,12 @@ def firewall_policy_processing(policies):
         # in Implementation Hints on how to do this. 
         # HINT:  Think about how to use the priority in your flow modification.
 
+        # create the OpenFlow objects
         rule = of.ofp_flow_mod() # Please note that you need to redefine this variable below to create a valid POX Flow Modification Object
         match = of.ofp_match()
         match.dl_type = 0x800
         
+        # parse through the policies and construct the match object
         if policy['ipprotocol'] != '-':
             match.nw_proto = int(policy['ipprotocol'])
 
@@ -69,6 +71,7 @@ def firewall_policy_processing(policies):
         if policy['port-dst'] != '-':
             match.tp_dst = int(policy['port-dst'])
 
+        # Set higher priority for allowing traffic through the firewall
         if policy['action'] == 'Allow':
             rule.actions.append(of.ofp_action_output(port=of.OFPP_CONTROLLER))
             rule.priority = 30000

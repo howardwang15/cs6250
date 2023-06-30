@@ -60,24 +60,25 @@ def firewall_policy_processing(policies):
             match.dl_dst = policy['mac-dst']
         
         if policy['ipprotocol'] != '-':
-            match.nw_proto = policy['ipprotocol']
+            match.nw_proto = int(policy['ipprotocol'])
         
         if policy['port-src'] != '-':
-            print(type(policy['port-src']))
             match.tp_src = int(policy['port-src'])
 
         if policy['port-dst'] != '-':
-            print(type(policy['port-dst']))
             match.tp_dst = int(policy['port-dst'])
 
         if policy['action'] == 'Allow':
-            rule.actions.append(of.ofp_action_output(port=of.OFPP_NORMAL))
+            rule.actions.append(of.ofp_action_output(port=of.OFPP_CONTROLLER))
+            rule.priority = 30000
+        elif policy['action'] == 'Block':
+            rule.priority = 1
         rule.match = match
 
 
         # End Code Here
         print('Added Rule ',policy['rulenum'],': ',policy['comment'])
-        print(rule)   #Uncomment this to debug your "rule"
+        # print(rule)   #Uncomment this to debug your "rule"
         rules.append(rule)
     
     return rules

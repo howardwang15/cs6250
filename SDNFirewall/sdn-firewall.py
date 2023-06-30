@@ -47,21 +47,22 @@ def firewall_policy_processing(policies):
         rule = of.ofp_flow_mod() # Please note that you need to redefine this variable below to create a valid POX Flow Modification Object
         match = of.ofp_match()
         match.dl_type = 0x800
+        
+        if policy['ipprotocol'] != '-':
+            match.nw_proto = int(policy['ipprotocol'])
+
+        if policy['mac-src'] != '-':
+            match.dl_src = EthAddr(policy['mac-src'])
+        
+        if policy['mac-dst'] != '-':
+            match.dl_dst = EthAddr(policy['mac-dst'])
+
         if policy['ip-src'] != '-':
             match.nw_src = policy['ip-src']
         
         if policy['ip-dst'] != '-':
             match.nw_dst = policy['ip-dst']
-        
-        if policy['mac-src'] != '-':
-            match.dl_src = policy['mac-src']
-        
-        if policy['mac-dst'] != '-':
-            match.dl_dst = policy['mac-dst']
-        
-        if policy['ipprotocol'] != '-':
-            match.nw_proto = int(policy['ipprotocol'])
-        
+
         if policy['port-src'] != '-':
             match.tp_src = int(policy['port-src'])
 

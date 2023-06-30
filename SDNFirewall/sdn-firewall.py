@@ -36,7 +36,7 @@ def firewall_policy_processing(policies):
     IPAddr() unless you reformat the CIDR notation.  Look at the https://github.com/att/pox/blob/master/pox/lib/addresses.py
     for what POX is expecting as an IP Address.
     '''
-
+    print(policies)
     rules = []
 
     for policy in policies:
@@ -44,12 +44,40 @@ def firewall_policy_processing(policies):
         # in Implementation Hints on how to do this. 
         # HINT:  Think about how to use the priority in your flow modification.
 
-        rule = None # Please note that you need to redefine this variable below to create a valid POX Flow Modification Object
+        rule = of.ofp_flow_mod() # Please note that you need to redefine this variable below to create a valid POX Flow Modification Object
+        match = of.ofp_match()
+        match.dl_type = 0x800
+        if policy['ip-src'] != '-':
+            match.nw_src = policy['ip-src']
+        
+        if policy['ip-dst'] != '-':
+            match.nw_dst = policy['ip-dst']
+        
+        if policy['mac-src'] != '-':
+            match.dl_src = policy['mac-src']
+        
+        if policy['mac-dst'] != '-':
+            match.dl_dst = policy['mac-dst']
+        
+        if policy['ipprotocol'] != '-':
+            match.nw_proto = policy['ipprotocol']
+        
+        if policy['port-src'] != '-':
+            print(type(policy['port-src']))
+            match.tp_src = int(policy['port-src'])
+
+        if policy['port-dst'] != '-':
+            print(type(policy['port-dst']))
+            match.tp_dst = int(policy['port-dst'])
+
+        if policy['action'] == 'Allow':
+            rule.actions.append(of.ofp_action_output(port=of.OFPP_NORMAL))
+        rule.match = match
 
 
         # End Code Here
         print('Added Rule ',policy['rulenum'],': ',policy['comment'])
-        #print(rule)   #Uncomment this to debug your "rule"
+        print(rule)   #Uncomment this to debug your "rule"
         rules.append(rule)
     
     return rules

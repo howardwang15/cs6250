@@ -30,7 +30,11 @@ def unique_prefixes_by_snapshot(cache_files):
     for fpath in cache_files:
         stream = pybgpstream.BGPStream(data_interface="singlefile")
         stream.set_data_interface_option("singlefile", "rib-file", fpath)
+        unique_prefixes = set()
+        for elem in stream:
+            unique_prefixes.add(elem.fields["prefix"])
 
+        unique_prefixes_by_snapshot.append(len(unique_prefixes))
         # implement your solution here
 
 
@@ -57,7 +61,11 @@ def unique_ases_by_snapshot(cache_files):
         stream.set_data_interface_option("singlefile", "rib-file", fpath)
 
         # implement your solution here
+        unique_as = set()
+        for elem in stream:
+            unique_as.update(elem.fields['as-path'].split())
 
+        unique_ases_by_snapshot.append(len(unique_as))
 
     return unique_ases_by_snapshot
 
@@ -81,14 +89,59 @@ def top_10_ases_by_prefix_growth(cache_files):
     # the required return type is 'list' - you are welcome to define additional data structures, if needed
     top_10_ases_by_prefix_growth = []
 
+    def sort_as(as_item):
+        as_id, as_info = as_item
+        # print(as_id, as_info)
+        percent_increase = (as_info['num_prefixes_last_snapshot']-as_info['num_prefixes_first_snapshot'])/as_info['num_prefixes_first_snapshot']*100
+        try:
+            return percent_increase, int(as_id)
+        except ValueError:
+            return percent_increase, 0
+
+    # as_analytics is the data structure used to keep track of:
+    # - first snapshot AS appears in
+    # - last snapshot AS appears in
+    # - number of prefixes in first snapshot
+    # - number of prefixes in last snapshot
+    as_analytics = {}
     for ndx, fpath in enumerate(cache_files):
         stream = pybgpstream.BGPStream(data_interface="singlefile")
         stream.set_data_interface_option("singlefile", "rib-file", fpath)
+        print(f"Starting snapshot {ndx}")
 
         # implement your solution here
+        for elem in stream:
+            as_path = elem.fields['as-path'].split()
+            print(elem.fields)
 
+            if not as_path:
+                continue
+            origin = as_path[-1]
+            if origin not in as_analytics:
+                # first time AS has been seen
+                as_analytics[origin] = {
+                    'first_snapshot': ndx,
+                    'last_snapshot': ndx,
+                    'num_prefixes_first_snapshot': 1,
+                    'num_prefixes_last_snapshot': 1
+                }
+            else:
+                # Still in the first snapshot, update number of prefixes in first snapshot
+                if ndx == as_analytics[origin]['first_snapshot']:
+                    as_analytics[origin]['num_prefixes_first_snapshot'] += 1
+                # No longer in first snapshot, has just switched to a new snapshot
+                elif as_analytics[origin]['last_snapshot'] != ndx:
+                    as_analytics[origin]['last_snapshot'] = ndx
+                    as_analytics[origin]['num_prefixes_last_snapshot'] = 1
+                # In most recent snapshot
+                else:
+                    as_analytics[origin]['num_prefixes_last_snapshot'] += 1
 
-    return top_10_ases_by_prefix_growth
+    sorted_as = sorted(as_analytics.items(), key=sort_as)
+    print(sorted_as[0])
+    top_10 = sorted_as[-10:]
+    print(top_10)
+    return [_as[0] for _as in top_10]
 
 
 # Task 2: Routing Table Growth: AS-Path Length Evolution Over Time
@@ -121,15 +174,31 @@ def shortest_path_by_origin_by_snapshot(cache_files):
     for ndx, fpath in enumerate(cache_files):
         stream = pybgpstream.BGPStream(data_interface="singlefile")
         stream.set_data_interface_option("singlefile", "rib-file", fpath)
+        print(f"Starting snapshot {ndx}")
 
-        # implement your solution here
-
-
+        for elem in stream:
+            as_path = elem.fields['as-path'].split()
+            if not as_path:
+                continue
+            origin = as_path[-1]
+            unique_as = set(as_path)
+            path_length = len(unique_as)
+            if path_length <= 1:
+                continue
+            if origin not in shortest_path_by_origin_by_snapshot:
+                shortest_path_by_origin_by_snapshot[origin] = [0] * len(cache_files)
+                shortest_path_by_origin_by_snapshot[origin][ndx] = path_length
+            # just moved on to the next snapshot
+            else:
+                shortest_path_by_origin_by_snapshot[origin][ndx] = min(shortest_path_by_origin_by_snapshot[origin][ndx], path_length) \
+                    if shortest_path_by_origin_by_snapshot[origin][ndx] != 0 else path_length
     return shortest_path_by_origin_by_snapshot
 
 
 # Task 3: Announcement-Withdrawal Event Durations
 def aw_event_durations(cache_files):
+    def key(peer, prefix):
+        return f'{peer}|{prefix}'
     """
     Identify Announcement and Withdrawal events and compute the duration of all explicit AW events in the input BGP data
 
@@ -146,13 +215,43 @@ def aw_event_durations(cache_files):
     """
     # the required return type is 'dict' - you are welcome to define additional data structures, if needed
     aw_event_durations = {}
+    announce_event_timestamp = {}
 
     for ndx, fpath in enumerate(cache_files):
+        print(f"Starting snapshot {ndx}")
         stream = pybgpstream.BGPStream(data_interface="singlefile")
         stream.set_data_interface_option("singlefile", "upd-file", fpath)
+        for elem in stream:
+            if elem.type not in ('A', 'W'):
+                continue
 
-        # implement your solution here
+            timestamp = elem.record.time
+            peer_ip = elem.peer_address
+            prefix = elem.fields['prefix']
+            if elem.type == 'A':
+                # add the announcement to announce_event_timestamp
+                announce_event_timestamp[key(peer_ip, prefix)] = timestamp
+            elif elem.type == 'W':
+                announce_timestamp_key = key(peer_ip, prefix)
+                if announce_timestamp_key in announce_event_timestamp:
+                    # compute the duration between current withdrawl with latest announcement
+                    duration = timestamp - announce_event_timestamp[announce_timestamp_key]
+                    if duration == 0:
+                        del announce_event_timestamp[announce_timestamp_key]
+                        continue
 
+                    # have a matching withdrawl & announcement, update aw_event_durations
+                    if peer_ip not in aw_event_durations:
+                        aw_event_durations[peer_ip] = {prefix: [duration]}
+                    else:
+                        # prefix is not associated with peer yet
+                        if prefix not in aw_event_durations[peer_ip]:
+                            aw_event_durations[peer_ip][prefix] = [duration]
+                        else:
+                            aw_event_durations[peer_ip][prefix].append(duration)
+
+                    # remove the matched announcement
+                    del announce_event_timestamp[announce_timestamp_key]
 
     return aw_event_durations
 

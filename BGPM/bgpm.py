@@ -87,61 +87,62 @@ def top_10_ases_by_prefix_growth(cache_files):
           highest percentage increase (of the top ten).
       """
     # the required return type is 'list' - you are welcome to define additional data structures, if needed
-    top_10_ases_by_prefix_growth = []
 
-    def sort_as(as_item):
-        as_id, as_info = as_item
-        # print(as_id, as_info)
-        percent_increase = (as_info['num_prefixes_last_snapshot']-as_info['num_prefixes_first_snapshot'])/as_info['num_prefixes_first_snapshot']*100
+    def sort_origins(origin_growths):
+        origin, growth = origin_growths
         try:
-            return percent_increase, int(as_id)
+            return growth, int(origin)
         except ValueError:
-            return percent_increase, 0
+            return growth, 0
 
-    # as_analytics is the data structure used to keep track of:
-    # - first snapshot AS appears in
-    # - last snapshot AS appears in
-    # - number of prefixes in first snapshot
-    # - number of prefixes in last snapshot
-    as_analytics = {}
+    # store origin => first snapshot origin appears in
+    # store origin => last snapshot origin appears in
+    # store origin => all unique prefixes of first snapshot origin appears in
+    # store origin => all unique prefixes of last snapshot origin appears in
+
+    origin_first_appearance = {}
+    origin_last_appearance = {}
+    origin_first_appearance_prefixes = {}
+    origin_last_appearance_prefixes = {}
+
     for ndx, fpath in enumerate(cache_files):
         stream = pybgpstream.BGPStream(data_interface="singlefile")
         stream.set_data_interface_option("singlefile", "rib-file", fpath)
-        print(f"Starting snapshot {ndx}")
 
         # implement your solution here
         for elem in stream:
             as_path = elem.fields['as-path'].split()
-            print(elem.fields)
+            prefix = elem.fields['prefix']
 
             if not as_path:
                 continue
             origin = as_path[-1]
-            if origin not in as_analytics:
-                # first time AS has been seen
-                as_analytics[origin] = {
-                    'first_snapshot': ndx,
-                    'last_snapshot': ndx,
-                    'num_prefixes_first_snapshot': 1,
-                    'num_prefixes_last_snapshot': 1
-                }
-            else:
-                # Still in the first snapshot, update number of prefixes in first snapshot
-                if ndx == as_analytics[origin]['first_snapshot']:
-                    as_analytics[origin]['num_prefixes_first_snapshot'] += 1
-                # No longer in first snapshot, has just switched to a new snapshot
-                elif as_analytics[origin]['last_snapshot'] != ndx:
-                    as_analytics[origin]['last_snapshot'] = ndx
-                    as_analytics[origin]['num_prefixes_last_snapshot'] = 1
-                # In most recent snapshot
-                else:
-                    as_analytics[origin]['num_prefixes_last_snapshot'] += 1
 
-    sorted_as = sorted(as_analytics.items(), key=sort_as)
-    print(sorted_as[0])
-    top_10 = sorted_as[-10:]
-    print(top_10)
-    return [_as[0] for _as in top_10]
+            if origin not in origin_first_appearance:
+
+                origin_first_appearance[origin] = ndx
+                origin_first_appearance_prefixes[origin] = set([prefix])
+            # operating on the first snapshot origin appears in
+            elif origin_first_appearance[origin] == ndx:
+                origin_first_appearance_prefixes[origin].add(prefix)
+
+            # origin appears in a later snapshot
+            elif origin not in origin_last_appearance or ndx != origin_last_appearance[origin]:
+                origin_last_appearance[origin] = ndx
+                origin_last_appearance_prefixes[origin] = set([prefix])
+            else:
+                origin_last_appearance_prefixes[origin].add(prefix)
+
+    origin_differences_growth = {}
+    for origin, last_prefixes in origin_last_appearance_prefixes.items():
+        num_last_prefixes = len(last_prefixes)
+        num_first_prefixes = len(origin_first_appearance_prefixes[origin])
+        growth = (num_last_prefixes - num_first_prefixes)/num_first_prefixes * 100
+        origin_differences_growth[origin] = growth
+
+    sorted_growths = sorted(origin_differences_growth.items(), key=sort_origins)
+    top_10 = sorted_growths[-10:]
+    return [origin[0] for origin in top_10]
 
 
 # Task 2: Routing Table Growth: AS-Path Length Evolution Over Time
@@ -174,7 +175,6 @@ def shortest_path_by_origin_by_snapshot(cache_files):
     for ndx, fpath in enumerate(cache_files):
         stream = pybgpstream.BGPStream(data_interface="singlefile")
         stream.set_data_interface_option("singlefile", "rib-file", fpath)
-        print(f"Starting snapshot {ndx}")
 
         for elem in stream:
             as_path = elem.fields['as-path'].split()
@@ -218,7 +218,6 @@ def aw_event_durations(cache_files):
     announce_event_timestamp = {}
 
     for ndx, fpath in enumerate(cache_files):
-        print(f"Starting snapshot {ndx}")
         stream = pybgpstream.BGPStream(data_interface="singlefile")
         stream.set_data_interface_option("singlefile", "upd-file", fpath)
         for elem in stream:
@@ -228,27 +227,24 @@ def aw_event_durations(cache_files):
             timestamp = elem.record.time
             peer_ip = elem.peer_address
             prefix = elem.fields['prefix']
+            announce_timestamp_key = key(peer_ip, prefix)
             if elem.type == 'A':
                 # add the announcement to announce_event_timestamp
-                announce_event_timestamp[key(peer_ip, prefix)] = timestamp
+                announce_event_timestamp[announce_timestamp_key] = timestamp
             elif elem.type == 'W':
-                announce_timestamp_key = key(peer_ip, prefix)
                 if announce_timestamp_key in announce_event_timestamp:
                     # compute the duration between current withdrawl with latest announcement
                     duration = timestamp - announce_event_timestamp[announce_timestamp_key]
-                    if duration == 0:
-                        del announce_event_timestamp[announce_timestamp_key]
-                        continue
-
-                    # have a matching withdrawl & announcement, update aw_event_durations
-                    if peer_ip not in aw_event_durations:
-                        aw_event_durations[peer_ip] = {prefix: [duration]}
-                    else:
-                        # prefix is not associated with peer yet
-                        if prefix not in aw_event_durations[peer_ip]:
-                            aw_event_durations[peer_ip][prefix] = [duration]
+                    if duration != 0:
+                        # have a matching withdrawl & announcement, update aw_event_durations
+                        if peer_ip not in aw_event_durations:
+                            aw_event_durations[peer_ip] = {prefix: [duration]}
                         else:
-                            aw_event_durations[peer_ip][prefix].append(duration)
+                            # prefix is not associated with peer yet
+                            if prefix not in aw_event_durations[peer_ip]:
+                                aw_event_durations[peer_ip][prefix] = [duration]
+                            else:
+                                aw_event_durations[peer_ip][prefix].append(duration)
 
                     # remove the matched announcement
                     del announce_event_timestamp[announce_timestamp_key]
@@ -258,6 +254,14 @@ def aw_event_durations(cache_files):
 
 # Task 4: RTBH Event Durations
 def rtbh_event_durations(cache_files):
+    def key(peer, prefix):
+        return f'{peer}|{prefix}'
+
+    def is_blackholing_event(elem):
+        for community in elem.fields['communities']:
+            if community.split(':')[-1] == BLACKHOLE_COMMUNITY:
+                return True
+        return False
     """
     Identify blackholing events and compute the duration of all RTBH events from the input BGP data
 
@@ -276,13 +280,40 @@ def rtbh_event_durations(cache_files):
     """
     # the required return type is 'dict' - you are welcome to define additional data structures, if needed
     rtbh_event_durations = {}
+    rtbh_announce_event_timestamp = {}
+    BLACKHOLE_COMMUNITY = '666'
 
-    for fpath in cache_files:
+    for ndx, fpath in enumerate(cache_files):
         stream = pybgpstream.BGPStream(data_interface="singlefile")
         stream.set_data_interface_option("singlefile", "upd-file", fpath)
+        for elem in stream:
+            if elem.type not in ('A', 'W'):
+                continue
 
-        # implement your solution here
+            timestamp = elem.record.time
+            peer_ip = elem.peer_address
+            prefix = elem.fields['prefix']
+            rtbh_announce_event_key = key(peer_ip, prefix)
+            if elem.type == 'A':
+                # add the announcement to announce_event_timestamp
+                if is_blackholing_event(elem):
+                    rtbh_announce_event_timestamp[rtbh_announce_event_key] = timestamp
+                else:
+                    rtbh_announce_event_timestamp.pop(rtbh_announce_event_key, None)
+            elif elem.type == 'W':
+                if rtbh_announce_event_key in rtbh_announce_event_timestamp:
+                    duration = timestamp - rtbh_announce_event_timestamp[rtbh_announce_event_key]
+                    if duration != 0:
+                        if peer_ip not in rtbh_event_durations:
+                            rtbh_event_durations[peer_ip] = {prefix: [duration]}
+                        else:
+                            # prefix is not associated with peer yet
+                            if prefix not in rtbh_event_durations[peer_ip]:
+                                rtbh_event_durations[peer_ip][prefix] = [duration]
+                            else:
+                                rtbh_event_durations[peer_ip][prefix].append(duration)
 
+                    del rtbh_announce_event_timestamp[rtbh_announce_event_key]
 
     return rtbh_event_durations
 

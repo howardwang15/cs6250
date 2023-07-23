@@ -183,20 +183,21 @@ def shortest_path_by_origin_by_snapshot(cache_files):
             origin = as_path[-1]
             unique_as = set(as_path)
             path_length = len(unique_as)
-            if path_length <= 1:
-                continue
-            if origin not in shortest_path_by_origin_by_snapshot:
-                shortest_path_by_origin_by_snapshot[origin] = [0] * len(cache_files)
-                shortest_path_by_origin_by_snapshot[origin][ndx] = path_length
-            # just moved on to the next snapshot
-            else:
-                shortest_path_by_origin_by_snapshot[origin][ndx] = min(shortest_path_by_origin_by_snapshot[origin][ndx], path_length) \
-                    if shortest_path_by_origin_by_snapshot[origin][ndx] != 0 else path_length
+            if path_length > 1:
+                # The origin has not been seen yet, build up the data structure with 0 prefixes initially for all data files
+                if origin not in shortest_path_by_origin_by_snapshot:
+                    shortest_path_by_origin_by_snapshot[origin] = [0] * len(cache_files)
+                    shortest_path_by_origin_by_snapshot[origin][ndx] = path_length
+                else:
+                    # Possibly update the shortest path
+                    shortest_path_by_origin_by_snapshot[origin][ndx] = min(shortest_path_by_origin_by_snapshot[origin][ndx], path_length) \
+                        if shortest_path_by_origin_by_snapshot[origin][ndx] != 0 else path_length
     return shortest_path_by_origin_by_snapshot
 
 
 # Task 3: Announcement-Withdrawal Event Durations
 def aw_event_durations(cache_files):
+    # Simple function to combine the peer address and prefix advertised into a single key, useful for quick lookups for the pairing
     def key(peer, prefix):
         return f'{peer}|{prefix}'
     """
@@ -213,7 +214,9 @@ def aw_event_durations(cache_files):
         For example: {"127.0.0.1": {"12.13.14.0/24": [4.0, 1.0, 3.0]}}
         corresponds to the peerIP "127.0.0.1", the prefix "12.13.14.0/24" and event durations of 4.0, 1.0 and 3.0.
     """
-    # the required return type is 'dict' - you are welcome to define additional data structures, if needed
+
+    # aw_event_durations => return value
+    # announce_event_timestamp => stores the latest keyed peer address/prefix advertised pairing to the timestamp it was recorded 
     aw_event_durations = {}
     announce_event_timestamp = {}
 
@@ -224,16 +227,21 @@ def aw_event_durations(cache_files):
             if elem.type not in ('A', 'W'):
                 continue
 
+            # Pull the relevant pieces from the element in the stream
             timestamp = elem.record.time
             peer_ip = elem.peer_address
             prefix = elem.fields['prefix']
             announce_timestamp_key = key(peer_ip, prefix)
+
+            # Process the announcement event
             if elem.type == 'A':
                 # add the announcement to announce_event_timestamp
                 announce_event_timestamp[announce_timestamp_key] = timestamp
+
+            # process the withdrawal event
             elif elem.type == 'W':
                 if announce_timestamp_key in announce_event_timestamp:
-                    # compute the duration between current withdrawl with latest announcement
+                    # compute the duration between current withdrawl with latest announcement for the pair
                     duration = timestamp - announce_event_timestamp[announce_timestamp_key]
                     if duration != 0:
                         # have a matching withdrawl & announcement, update aw_event_durations
@@ -244,6 +252,7 @@ def aw_event_durations(cache_files):
                             if prefix not in aw_event_durations[peer_ip]:
                                 aw_event_durations[peer_ip][prefix] = [duration]
                             else:
+                                # prefix and pair already exist, add another duration to the list
                                 aw_event_durations[peer_ip][prefix].append(duration)
 
                     # remove the matched announcement
@@ -254,9 +263,11 @@ def aw_event_durations(cache_files):
 
 # Task 4: RTBH Event Durations
 def rtbh_event_durations(cache_files):
+    # Simple function to combine the peer address and prefix advertised into a single key, useful for quick lookups for the pairing
     def key(peer, prefix):
         return f'{peer}|{prefix}'
 
+    # Determines if the element in the stream is a blackholing event
     def is_blackholing_event(elem):
         for community in elem.fields['communities']:
             if community.split(':')[-1] == BLACKHOLE_COMMUNITY:
@@ -281,26 +292,34 @@ def rtbh_event_durations(cache_files):
     # the required return type is 'dict' - you are welcome to define additional data structures, if needed
     rtbh_event_durations = {}
     rtbh_announce_event_timestamp = {}
+    
+    # According to https://datatracker.ietf.org/doc/html/rfc7999#section-5
     BLACKHOLE_COMMUNITY = '666'
 
     for ndx, fpath in enumerate(cache_files):
         stream = pybgpstream.BGPStream(data_interface="singlefile")
         stream.set_data_interface_option("singlefile", "upd-file", fpath)
         for elem in stream:
+            # We only care about Announcement and Withdrawal events
             if elem.type not in ('A', 'W'):
                 continue
 
+            # Pull the relevant fields
             timestamp = elem.record.time
             peer_ip = elem.peer_address
             prefix = elem.fields['prefix']
             rtbh_announce_event_key = key(peer_ip, prefix)
+
+            # Process an Announcement event
             if elem.type == 'A':
-                # add the announcement to announce_event_timestamp
+                # Add the timestamp if the Announcement is a blackholing event
                 if is_blackholing_event(elem):
                     rtbh_announce_event_timestamp[rtbh_announce_event_key] = timestamp
+                # If not, then (possibly) remove the old RTBH event
                 else:
                     rtbh_announce_event_timestamp.pop(rtbh_announce_event_key, None)
             elif elem.type == 'W':
+                # The Withdrawal event has a matching RTBH Announcement event
                 if rtbh_announce_event_key in rtbh_announce_event_timestamp:
                     duration = timestamp - rtbh_announce_event_timestamp[rtbh_announce_event_key]
                     if duration != 0:
